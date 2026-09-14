@@ -1,0 +1,484 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Auth ──────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  passwordHash  String
+  role          Role      @default(ADMIN)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  auditLogs     AuditLog[]
+}
+
+enum Role {
+  ADMIN
+  SUPER_ADMIN
+  SALES
+  VIEWER
+}
+
+// ─── Brand ─────────────────────────────────────────────
+
+model Brand {
+  id            String        @id @default(cuid())
+  name          String
+  slug          String        @unique
+  description   String?       @db.Text
+  logoUrl       String?
+  website       String?
+  country       String?
+  isPublished   Boolean       @default(true)
+  sortOrder     Int           @default(0)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  products      Product[]
+  translations  BrandTranslation[]
+}
+
+model BrandTranslation {
+  id            String   @id @default(cuid())
+  brandId       String
+  brand         Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  locale        String   // "en", "th", "ar", etc.
+  name          String
+  description   String?  @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([brandId, locale])
+}
+
+// ─── Product ───────────────────────────────────────────
+
+model Product {
+  id                String            @id @default(cuid())
+  name              String
+  slug              String            @unique
+  sku               String?
+  brandId           String
+  brand             Brand             @relation(fields: [brandId], references: [id])
+  shortDescription  String?           @db.Text
+  description       String?           @db.Text
+  benefits          String?           @db.Text
+  ingredients       String?           @db.Text
+  skinType          String?
+  productType       String?
+  packaging         String?
+  size              String?
+  moq               Int?
+  moqNote           String?
+  cartonQuantity    Int?
+  unitsPerCarton    Int?
+  shelfLife         String?
+  countryOfOrigin   String            @default("Thailand")
+  leadTime          String?
+  sampleAvailable   Boolean           @default(false)
+  oemOdmAvailable   Boolean           @default(false)
+  isFeatured        Boolean           @default(false)
+  isNew             Boolean           @default(false)
+  isBestseller      Boolean           @default(false)
+  isSachet          Boolean           @default(false)
+  isExportReady     Boolean           @default(true)
+  status            ProductStatus     @default(DRAFT)
+  availability      Availability      @default(AVAILABLE)
+  sortOrder         Int               @default(0)
+  seoTitle          String?
+  seoDescription    String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  images            ProductImage[]
+  certifications    ProductCertification[]
+  functions         ProductFunction[]
+  rfqItems          RFQItem[]
+  documents         ProductDocument[]
+  translations      ProductTranslation[]
+}
+
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum Availability {
+  AVAILABLE
+  LIMITED
+  ON_REQUEST
+  UNAVAILABLE
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  alt       String?
+  isPrimary Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model ProductDocument {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name      String
+  url       String
+  type      String   // "specification", "certificate", "ingredient_sheet", "catalog"
+  access    String   @default("public") // "public", "after_rfq", "admin_only"
+  createdAt DateTime @default(now())
+}
+
+model ProductTranslation {
+  id               String   @id @default(cuid())
+  productId        String
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  locale           String
+  name             String
+  shortDescription String?  @db.Text
+  description      String?  @db.Text
+  benefits         String?  @db.Text
+  ingredients      String?  @db.Text
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([productId, locale])
+}
+
+// ─── Category / Function / Certification ───────────────
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  icon        String?
+  description String?   @db.Text
+  sortOrder   Int       @default(0)
+  isPublished Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  functions   Function[]
+}
+
+model Function {
+  id          String            @id @default(cuid())
+  name        String
+  slug        String            @unique
+  icon        String?
+  description String?           @db.Text
+  categoryId  String?
+  category    Category?         @relation(fields: [categoryId], references: [id])
+  sortOrder   Int               @default(0)
+  isPublished Boolean           @default(true)
+  productCount Int              @default(0)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  products    ProductFunction[]
+  translations FunctionTranslation[]
+}
+
+model FunctionTranslation {
+  id          String   @id @default(cuid())
+  functionId  String
+  function    Function @relation(fields: [functionId], references: [id], onDelete: Cascade)
+  locale      String
+  name        String
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([functionId, locale])
+}
+
+model Certification {
+  id            String                    @id @default(cuid())
+  name          String
+  slug          String                    @unique
+  description   String?                   @db.Text
+  logoUrl       String?
+  sortOrder     Int                       @default(0)
+  isPublished   Boolean                   @default(true)
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  products      ProductCertification[]
+  translations  CertificationTranslation[]
+}
+
+model CertificationTranslation {
+  id              String        @id @default(cuid())
+  certificationId String
+  certification   Certification @relation(fields: [certificationId], references: [id], onDelete: Cascade)
+  locale          String
+  name            String
+  description     String?       @db.Text
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([certificationId, locale])
+}
+
+// ─── Join Tables ───────────────────────────────────────
+
+model ProductCertification {
+  id              String         @id @default(cuid())
+  productId       String
+  product         Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  certificationId String
+  certification   Certification  @relation(fields: [certificationId], references: [id], onDelete: Cascade)
+  createdAt       DateTime       @default(now())
+
+  @@unique([productId, certificationId])
+}
+
+model ProductFunction {
+  id          String   @id @default(cuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  functionId  String
+  function    Function @relation(fields: [functionId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([productId, functionId])
+}
+
+// ─── RFQ ───────────────────────────────────────────────
+
+model RFQ {
+  id                String       @id @default(cuid())
+  rfqNumber         String       @unique
+  fullName          String
+  companyName       String
+  country           String
+  email             String
+  phone             String?
+  whatsapp          String?
+  preferredContact  String       @default("email") // "email", "whatsapp", "both"
+  targetPrice       String?
+  preferredPackaging String?
+  deliveryDest      String?
+  additionalReqs    String?      @db.Text
+  message           String?      @db.Text
+  status            RFQStatus    @default(NEW)
+  source            String       @default("website") // "website", "whatsapp", "email"
+  gdprConsent       Boolean      @default(false)
+  items             RFQItem[]
+  notes             RFQNote[]
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+}
+
+enum RFQStatus {
+  NEW
+  CONTACTED
+  QUOTATION_SENT
+  NEGOTIATION
+  WON
+  LOST
+  ARCHIVED
+}
+
+model RFQItem {
+  id          String   @id @default(cuid())
+  rfqId       String
+  rfq         RFQ      @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  quantity    Int?
+  note        String?  @db.Text
+  createdAt   DateTime @default(now())
+}
+
+model RFQNote {
+  id        String   @id @default(cuid())
+  rfqId     String
+  rfq       RFQ      @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  content   String   @db.Text
+  authorId  String?
+  isInternal Boolean @default(true)
+  createdAt DateTime @default(now())
+}
+
+// ─── Lead ──────────────────────────────────────────────
+
+model Lead {
+  id               String     @id @default(cuid())
+  source           String     @default("rfq")
+  companyName      String
+  contactName      String
+  email            String
+  phone            String?
+  country          String?
+  status           String     @default("new") // "new", "qualified", "proposal", "won", "lost"
+  lastContactDate  DateTime?
+  assignedToId     String?
+  internalNotes    String?    @db.Text
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+}
+
+// ─── CMS / Settings ────────────────────────────────────
+
+model SiteSettings {
+  id              String   @id @default("singleton")
+  siteName        String   @default("GulShop")
+  siteDescription String?
+  logoUrl         String?
+  faviconUrl      String?
+  salesEmail      String?
+  generalEmail    String?
+  supportEmail    String?
+  whatsappNumber  String?
+  phone           String?
+  address         String?  @db.Text
+  businessHours   String?
+  facebook        String?
+  instagram       String?
+  linkedin        String?
+  youtube         String?
+  twitter         String?
+  defaultLocale   String   @default("en")
+  updatedAt       DateTime @updatedAt
+}
+
+model HeroSlide {
+  id          String   @id @default(cuid())
+  heading     String
+  description String?  @db.Text
+  imageUrl    String?
+  ctaText     String?
+  ctaLink     String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  translations HeroSlideTranslation[]
+}
+
+model HeroSlideTranslation {
+  id          String   @id @default(cuid())
+  slideId     String
+  slide       HeroSlide @relation(fields: [slideId], references: [id], onDelete: Cascade)
+  locale      String
+  heading     String
+  description String?  @db.Text
+  ctaText     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([slideId, locale])
+}
+
+model FAQ {
+  id          String   @id @default(cuid())
+  question    String
+  answer      String   @db.Text
+  sortOrder   Int      @default(0)
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  translations FAQTranslation[]
+}
+
+model FAQTranslation {
+  id        String   @id @default(cuid())
+  faqId     String
+  faq       FAQ      @relation(fields: [faqId], references: [id], onDelete: Cascade)
+  locale    String
+  question  String
+  answer    String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([faqId, locale])
+}
+
+model Page {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  content     String?  @db.Text
+  isPublished Boolean  @default(true)
+  seoTitle    String?
+  seoDesc     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  translations PageTranslation[]
+}
+
+model PageTranslation {
+  id        String   @id @default(cuid())
+  pageId    String
+  page      Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  locale    String
+  title     String
+  content   String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pageId, locale])
+}
+
+// ─── Audit Log ─────────────────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  entity    String?
+  entityId  String?
+  details   String?  @db.Text
+  ipAddress String?
+  createdAt DateTime @default(now())
+}
+
+// ─── Testimonials (social proof) ────────────────────────
+
+model Testimonial {
+  id          String   @id @default(cuid())
+  name        String
+  role        String?  // e.g. "Procurement Manager, Import Co."
+  companyName String?
+  country     String?
+  quote       String
+  rating      Int      @default(5) // 1-5
+  isVerified  Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+// ─── Analytics ──────────────────────────────────────────
+
+enum AnalyticsEventType {
+  PRODUCT_VIEW
+  BRAND_VIEW
+  RFQ_CLICK
+  RFQ_SUBMIT
+  SEARCH
+  COMPARE
+}
+
+model AnalyticsEvent {
+  id         String              @id @default(cuid())
+  eventType  AnalyticsEventType
+  productSlug String?
+  brandSlug  String?
+  query      String?
+  locale     String?
+  createdAt  DateTime            @default(now())
+
+  @@index([eventType, productSlug])
+  @@index([eventType, createdAt])
+}
